@@ -3,7 +3,7 @@
  */
 public with sharing class NewsAPIService {
     private static final String API_NAMED_CREDENTIAL = 'NewsAPI'; //https://newsapi.org
-    private static final String API_ENDPOINT = '/v2/top-headlines?country=us&pagesize=20&category=';
+    private static final String API_ENDPOINT = '/v2/top-headlines?country=us&pagesize=25&category=';
     private static final Integer PAGE_SIZE = 20;
     public static List<String> categoryList {get; private set;}
     

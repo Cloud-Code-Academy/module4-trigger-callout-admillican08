@@ -54,7 +54,7 @@ public with sharing class NewsCategoryTriggerHandler {
      */
     private static void syncCategoriesWithQueueable(List<News_Category__c> categoriesToSync) {
         for(News_Category__c category: categoriesToSync){
-            System.enqueueJob(new NewsCategoryQueueable(category, 0));
+            System.enqueueJob(new NewsCategoryQueueable(category, 0,0));
         }
         
     }

@@ -6,18 +6,17 @@ public class NewsCategoryQueueable implements Queueable, Database.AllowsCallouts
     private static final Integer MAX_PAGES = 20;
     private News_Category__c category;
     private Integer currentPage;
-    private static Integer chainCount = 0;
+    private Integer chainCount;
     
     /**
      * Constructor
      * @param category The News_Category__c record
      * @param currentPage Current page to process
      */
-    public NewsCategoryQueueable(News_Category__c category, Integer currentPage) {
+    public NewsCategoryQueueable(News_Category__c category, Integer currentPage, Integer chainCount) {
         this.category = category;
         this.currentPage = currentPage;
-        System.debug('** Category: ' + this.category.name);
-        System.debug('** Page: ' + this.currentPage);
+        this.chainCount = chainCount;
     }
     /**
      * Execute method for the queueable job
@@ -51,10 +50,10 @@ public class NewsCategoryQueueable implements Queueable, Database.AllowsCallouts
                 }
                 upsert articleRecords name;
             }
-            if(!Test.isRunningTest() && (chainCount < 6) && (this.currentPage < MAX_PAGES) && (newsApiResp != null)){
-                System.enqueueJob(new NewsCategoryQueueable(updatedCategory, this.currentPage + 1));
-                System.debug('** Chain count: ' + chainCount);
-                chainCount++;
+            if(!Test.isRunningTest() && (this.chainCount < 4) && (this.currentPage < MAX_PAGES) && (newsApiResp != null)){
+                System.debug('** Chain count ' + chainCount);
+                this.chainCount++;
+                System.enqueueJob(new NewsCategoryQueueable(updatedCategory, this.currentPage + 1, this.chainCount));
             } else
             {
                 updatedCategory.Sync__c = FALSE;
