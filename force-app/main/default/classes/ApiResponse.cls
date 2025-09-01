@@ -1,15 +1,22 @@
+/**
+ * @description       :
+ * @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+ * @group             :
+ * @last modified on  : 09-01-2025
+ * @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+ **/
 public with sharing class ApiResponse {
   public Integer code { get; private set; }
   public String body { get; private set; }
   public Boolean isSuccess { get; private set; }
   public String responseMsg { get; private set; }
-
+  
   public ApiResponse(HttpResponse response) {
     this.code = response.getStatusCode();
     this.body = response.getBody();
     this.isSuccess = false;
     this.responseMsg = this.getResponseFromStatus(); // also sets proper value for isSuccess
-  
+    
   }
   public String getResponseFromStatus() {
     switch on this.code {
@@ -76,6 +83,9 @@ public with sharing class ApiResponse {
       }
       when 415 {
         this.responseMsg = 'Unsupported media type; ' + this.body;
+      }
+      when 426 {
+        this.responseMsg = 'Upgrade required; ' + this.body;
       }
       when 429 {
         this.responseMsg = 'Too many requests; ' + this.body;

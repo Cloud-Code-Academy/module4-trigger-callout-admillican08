@@ -2,8 +2,8 @@
  * Service class to interact with the NewsAPI for fetching top headlines
  */
 public with sharing class NewsAPIService {
-    private static final String API_NAMED_CREDENTIAL = 'callout:NewsAPI'; //https://newsapi.org
-    private static final String API_ENDPOINT = '/v2/top-headlines?country=us&category=';
+    private static final String API_NAMED_CREDENTIAL = 'NewsAPI'; //https://newsapi.org
+    private static final String API_ENDPOINT = '/v2/top-headlines?country=us&pagesize=20&category=';
     private static final Integer PAGE_SIZE = 20;
     public static List<String> categoryList {get; private set;}
     
@@ -27,15 +27,15 @@ public with sharing class NewsAPIService {
         if(page > PAGE_SIZE){
             throw new NewsApiProcessingException('Page exceeds maximum number of pages');
         }
-        String endpoint = API_NAMED_CREDENTIAL + API_ENDPOINT + category + '&page=' + page;
+        String endpoint = 'callout:' + API_NAMED_CREDENTIAL + API_ENDPOINT + category + '&page=' + page;
         NewsAPIResponse newsApiResp;
         try{
             String jsonResponse = makeCallout(endpoint).getBody();
             newsApiResp = parseResponse(jsonResponse);
             
         } catch(Exception ex){
-            Error errorInfo = new Error(ex);
-            errorInfo.logError();
+            Logger.debug('Error in NewsAPIService.getTopHeadlinesByCategory(): ' + ex.getMessage());
+            Logger.saveLog();
         }
         return newsApiResp;
     }
@@ -53,12 +53,14 @@ public with sharing class NewsAPIService {
         Http http = new Http();
         HttpRequest request = new HttpRequest();
         request.setEndpoint(endpoint);
+        System.debug('** endpoint: ' + endpoint);
         request.setMethod('GET');
         HttpResponse resp = http.send(request);
         ApiResponse apiResponse = new ApiResponse(resp);
         if(apiResponse.isSuccess){
             return resp;
         } else {
+            System.debug('** Response: ' + apiResponse.responseMsg);
             throw new NewsAPIProcessingException('** Error parsing News Api Response: ' + apiResponse.responseMsg);
         }
     }
@@ -74,7 +76,7 @@ public with sharing class NewsAPIService {
         // - Handle exceptions
         System.debug('** Raw jsonResponse: ' + jsonResponse);
         NewsAPIResponse articleList = (NewsAPIResponse) JSON.deserialize(jsonResponse, NewsAPIResponse.class);
-        if(articleList.articles.isEmpty()){
+        if(articleList.articles.isEmpty() || jsonResponse.contains('"articles":[]')){
             return null;
         }
         else {
@@ -84,9 +86,10 @@ public with sharing class NewsAPIService {
                     NewsAPIResponse.Source newSource = new NewsAPIResponse.Source(art.source);
                     art.source = newSource;
                 } catch (Exception ex){
-                    Error errorInfo = new Error(ex);
-                    errorInfo.logError();
-                    throw new NewsApiProcessingException('*** News Api Processing Exception: ' + ex.getMessage());
+                    Logger.debug('Error processing article in NewsAPIService.parseResponse(): ' + ex.getMessage());
+                    Logger.saveLog();
+                    System.debug('** Stack trace: ' + ex.getStackTraceString());
+                    throw new NewsApiProcessingException('*** News Api Processing Exception: ' +  + ex.getMessage() + '; ' + ex.getStackTraceString());
                 }
             }
             

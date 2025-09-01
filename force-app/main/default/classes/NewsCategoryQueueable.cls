@@ -6,6 +6,7 @@ public class NewsCategoryQueueable implements Queueable, Database.AllowsCallouts
     private static final Integer MAX_PAGES = 20;
     private News_Category__c category;
     private Integer currentPage;
+    private static Integer chainCount = 0;
     
     /**
      * Constructor
@@ -40,19 +41,20 @@ public class NewsCategoryQueueable implements Queueable, Database.AllowsCallouts
             // - Update category with last synced date and sync flag = false
             System.debug('** Processing callout for ' + categoryName + ' at page ' + this.currentPage);
             NewsApiResponse newsApiResp = NewsApiService.getTopHeadlinesByCategory(categoryName, this.currentPage);
-            if(newsApiResp == null){
-                throw new NewsApiService.NewsAPIProcessingException('** No newsApiResponse created in queueable');
+            if(newsApiResp != null){
+                List<Article__c> articleRecords = new List<Article__c>();
+                for(NewsAPIResponse.Article art: newsApiResp.articles){
+                    NewsAPIResponse.Article article = new NewsAPIResponse.Article(art);
+                    Article__c articleRec = NewsAPIResponse.convertToSObject(article);
+                    articleRec = NewsAPIResponse.addCategoryToArticleRecord(articleRec, updatedCategory);
+                    articleRecords.add(articleRec);
+                }
+                upsert articleRecords name;
             }
-            List<Article__c> articleRecords = new List<Article__c>();
-            for(NewsAPIResponse.Article art: newsApiResp.articles){
-                Article__c articleRec = NewsAPIResponse.convertToSObject(art);
-                articleRec = NewsAPIResponse.addCategoryToArticleRecord(articleRec, updatedCategory);
-                articleRecords.add(articleRec);
-            }
-            insert articleRecords;
-            
-            if(!Test.isRunningTest() && (this.currentPage < MAX_PAGES) && !newsApiResp.articles.isEmpty()){
+            if(!Test.isRunningTest() && (chainCount < 6) && (this.currentPage < MAX_PAGES) && (newsApiResp != null)){
                 System.enqueueJob(new NewsCategoryQueueable(updatedCategory, this.currentPage + 1));
+                System.debug('** Chain count: ' + chainCount);
+                chainCount++;
             } else
             {
                 updatedCategory.Sync__c = FALSE;
@@ -62,9 +64,10 @@ public class NewsCategoryQueueable implements Queueable, Database.AllowsCallouts
         }
         
         catch (Exception e) {
-            Error errorInfo = new Error(e);
-            errorInfo.logError();
-            throw new NewsApiService.NewsAPIProcessingException('** Error executing NewsCategoryQueueable ' + e.getMessage());
+            Logger.debug('Error in NewsCategoryQueueable.execute(): ' + e.getMessage());
+            Logger.saveLog();
+            System.debug('** Stack trace: ' + e.getStackTraceString());
+            throw new NewsApiService.NewsAPIProcessingException('** Error executing NewsCategoryQueueable '  + e.getMessage() + '; ' + e.getStackTraceString());
         }
     }
 }
